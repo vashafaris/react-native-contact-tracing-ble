@@ -6,6 +6,8 @@ import {
   StatusBar,
   PermissionsAndroid,
   Button,
+  Text,
+  AppRegistry,
 } from 'react-native';
 import BLEPeripheral from 'react-native-ble-peripheral';
 import {BleManager} from 'react-native-ble-plx';
@@ -13,10 +15,18 @@ import {useBluetoothStatus} from 'react-native-bluetooth-status';
 import GetLocation from 'react-native-get-location';
 import DeviceInfo from 'react-native-device-info';
 
+// const BLEBackground = async (data) => {
+//   console.log('jalan background', data);
+// };
+// AppRegistry.registerHeadlessTask('BLEBackground', () => BLEBackground);
+
 const App = () => {
   const manager = new BleManager();
   const serviceId = 'afed8f98-f3ca-425f-85aa-7395937204be';
   const charId = '774c9bbe-ab21-481f-9bdf-c23cdbb82a7e';
+
+  const [id, setId] = useState('');
+  const [macId, setMacId] = useState('');
 
   const [btStatus, isPending, setBluetooth] = useBluetoothStatus();
 
@@ -42,63 +52,41 @@ const App = () => {
     }
   };
 
-  const getData = async (device) => {
-    // const location = await GetLocation.getCurrentPosition({
-    //   enableHighAccuracy: true,
-    //   timeout: 15000,
-    // });
-
-    // const deviceInfo = await DeviceInfo.getDevice();
-    const deviceInfo = await DeviceInfo.getMacAddress();
-
+  const getData = async (device, location, deviceInfo) => {
     console.log('==============================');
     console.log(`id: ${device.id}`);
-    console.log(`manufacturerData: ${device.manufacturerData}`);
-    console.log(`name: ${device.name}`);
-    console.log(`localName: ${device.localName}`);
-    console.log(`txPowerLevel: ${device.txPowerLevel}`);
+    console.log(`npk: ${device.name}`);
     console.log(`rssi: ${device.rssi}`);
-    console.log(`serviceData: ${device.serviceData}`);
-    console.log(`mtu: ${device.mtu}`);
-    // console.log(`latitude: ${location.lat}`);
-    // console.log(`longitude: ${location.long}`);
     console.log(`timestamp: ${Date.now()}`);
-    // console.log(location);
-    console.log(deviceInfo);
+    console.log(`lat: ${location.latitude}`);
+    console.log(`long: ${location.longitude}`);
+
+    setId(device.id);
+    setMacId(deviceInfo);
   };
 
   const scanAndConnect = async () => {
     console.log('scan and connect');
+    let location = {latitude: null, longitude: null};
+    try {
+      location = await GetLocation.getCurrentPosition({
+        enableHighAccuracy: false,
+        timeout: 5000,
+        maximumAge: 10000,
+      });
+    } catch (e) {
+      console.log(e);
+    }
+
+    const deviceInfo = await DeviceInfo.getDevice();
+
     manager.startDeviceScan([serviceId], null, (error, device) => {
       if (error) {
         console.log(error);
-        // Handle error (scanning will be stopped automatically)
         return;
       }
 
-      getData(device);
-
-      // console.log('==============================');
-      // console.log(`id: ${device.id}`);
-      // console.log(`manufacturerData: ${device.manufacturerData}`);
-      // console.log(`name: ${device.name}`);
-      // console.log(`localName: ${device.localName}`);
-      // console.log(`txPowerLevel: ${device.txPowerLevel}`);
-      // console.log(`rssi: ${device.rssi}`);
-      // console.log(`serviceData: ${device.serviceData}`);
-      // console.log(`mtu: ${device.mtu}`);
-      // console.log(`latitude: ${location.lat}`);
-      // console.log(`longitude: ${location.long}`);
-      // console.log(`timestamp: ${Date.now()}`);
-
-      // Check if it is a device you are looking for based on advertisement data
-      // or other criteria.
-      if (device.name === 'TI BLE Sensor Tag' || device.name === 'SensorTag') {
-        // Stop scanning as it's not necessary if you are scanning for one device.
-        manager.stopDeviceScan();
-
-        // Proceed with connection.
-      }
+      getData(device, location, deviceInfo);
 
       if (device) manager.stopDeviceScan();
     });
@@ -106,18 +94,13 @@ const App = () => {
 
   useEffect(() => {
     if (!isPending && btStatus) {
-      BLEPeripheral.setName('USERNAME');
+      BLEPeripheral.setName('9999');
       BLEPeripheral.addService(serviceId, true);
-      BLEPeripheral.addCharacteristicToService(
-        serviceId,
-        charId,
-        1,
-        1 | 2 | 16,
-      );
+      BLEPeripheral.addCharacteristicToService(serviceId, charId, 16 | 1, 8);
 
       BLEPeripheral.start()
         .then((res) => {
-          console.log(res);
+          console.log('ble peripheral', res);
           BLEPeripheral.sendNotificationToDevices(serviceId, charId, [
             0x10,
             0x01,
@@ -142,6 +125,8 @@ const App = () => {
       <SafeAreaView>
         <View>
           <Button title="press me" onPress={requestLocationPermission} />
+          <Text>found mac id: {id}</Text>
+          <Text>this mac id: {macId}</Text>
         </View>
       </SafeAreaView>
     </>
