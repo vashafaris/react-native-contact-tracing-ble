@@ -15,18 +15,18 @@ import {useBluetoothStatus} from 'react-native-bluetooth-status';
 import GetLocation from 'react-native-get-location';
 import DeviceInfo from 'react-native-device-info';
 
-// const BLEBackground = async (data) => {
-//   console.log('jalan background', data);
-// };
-// AppRegistry.registerHeadlessTask('BLEBackground', () => BLEBackground);
+import BLE from './BLE';
 
 const App = () => {
   const manager = new BleManager();
   const serviceId = 'afed8f98-f3ca-425f-85aa-7395937204be';
   const charId = '774c9bbe-ab21-481f-9bdf-c23cdbb82a7e';
 
+  const npk = '6728';
+
   const [id, setId] = useState('');
   const [macId, setMacId] = useState('');
+  const [foundName, setFoundName] = useState('');
 
   const [btStatus, isPending, setBluetooth] = useBluetoothStatus();
 
@@ -63,6 +63,7 @@ const App = () => {
 
     setId(device.id);
     setMacId(deviceInfo);
+    setFoundName(device.name);
   };
 
   const scanAndConnect = async () => {
@@ -80,21 +81,29 @@ const App = () => {
 
     const deviceInfo = await DeviceInfo.getDevice();
 
-    manager.startDeviceScan([serviceId], null, (error, device) => {
-      if (error) {
-        console.log(error);
-        return;
-      }
+    manager.startDeviceScan(
+      [serviceId],
+      {allowDuplicates: false},
+      (error, device) => {
+        if (error) {
+          console.log(error);
+          return;
+        }
 
-      getData(device, location, deviceInfo);
+        getData(device, location, deviceInfo);
 
-      if (device) manager.stopDeviceScan();
-    });
+        setTimeout(() => {
+          manager.stopDeviceScan();
+        }, 10000);
+
+        // if (device) manager.stopDeviceScan();
+      },
+    );
   };
 
   useEffect(() => {
     if (!isPending && btStatus) {
-      BLEPeripheral.setName('9999');
+      BLEPeripheral.setName(npk);
       BLEPeripheral.addService(serviceId, true);
       BLEPeripheral.addCharacteristicToService(serviceId, charId, 16 | 1, 8);
 
@@ -111,7 +120,7 @@ const App = () => {
         .catch((e) => {
           console.log(e);
         });
-      scanAndConnect();
+      // scanAndConnect();
     } else if (!isPending && !btStatus) {
       BLEPeripheral.stop();
       manager.stopDeviceScan();
@@ -124,9 +133,12 @@ const App = () => {
       <StatusBar barStyle="dark-content" />
       <SafeAreaView>
         <View>
-          <Button title="press me" onPress={requestLocationPermission} />
           <Text>found mac id: {id}</Text>
           <Text>this mac id: {macId}</Text>
+          <Text>found name: {foundName}</Text>
+          <Button title="Permission" onPress={requestLocationPermission} />
+          <Button title="BLE service" onPress={() => BLE.startService()} />
+          <Button title="Stop BLE service" onPress={() => BLE.stopService()} />
         </View>
       </SafeAreaView>
     </>
