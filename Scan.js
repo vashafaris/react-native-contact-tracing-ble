@@ -1,33 +1,51 @@
 import {BleManager} from 'react-native-ble-plx';
-import {useBluetoothStatus} from 'react-native-bluetooth-status';
+import BLEPeripheral from 'react-native-ble-peripheral';
+import {BluetoothStatus} from 'react-native-bluetooth-status';
 import GetLocation from 'react-native-get-location';
-import DeviceInfo from 'react-native-device-info';
+import AsyncStorage from '@react-native-community/async-storage';
 
 module.exports = async (taskData) => {
-  console.log('background scan');
-  const manager = new BleManager();
-  scanAndConnect(manager);
-};
-
-const getData = async (device, location, deviceInfo) => {
-  console.log('==============================');
-  console.log(`id: ${device.id}`);
-  console.log(`npk: ${device.name}`);
-  console.log(`rssi: ${device.rssi}`);
-  console.log(`timestamp: ${Date.now()}`);
-  console.log(`lat: ${location.latitude}`);
-  console.log(`long: ${location.longitude}`);
-
-  // setId(device.id);
-  // setMacId(deviceInfo);
-  // setFoundName(device.name);
-};
-
-const scanAndConnect = async (manager) => {
-  console.log('scan and connect');
+  console.log('background service');
 
   const serviceId = 'afed8f98-f3ca-425f-85aa-7395937204be';
   const charId = '774c9bbe-ab21-481f-9bdf-c23cdbb82a7e';
+
+  const btStatus = await BluetoothStatus.state();
+  const bleIdentifier = await AsyncStorage.getItem('bleIdentifier');
+
+  console.log('ble', bleIdentifier);
+
+  if (btStatus) {
+    scanService(bleIdentifier, serviceId);
+    peripheralService(bleIdentifier, serviceId, charId);
+  } else if (!btStatus) {
+    BLEPeripheral.stop();
+    console.log('Please enable bluetooth');
+  }
+};
+
+const peripheralService = async (bleIdentifier, serviceId, charId) => {
+  BLEPeripheral.setName(bleIdentifier);
+  BLEPeripheral.addService(serviceId, true);
+  BLEPeripheral.addCharacteristicToService(serviceId, charId, 16 | 1, 8);
+
+  BLEPeripheral.start()
+    .then((res) => {
+      console.log('ble peripheral', res);
+      BLEPeripheral.sendNotificationToDevices(serviceId, charId, [
+        0x10,
+        0x01,
+        0xa1,
+        0x80,
+      ]);
+    })
+    .catch((e) => {
+      console.log(e);
+    });
+};
+
+const scanService = async (bleIdentifier, serviceId) => {
+  const manager = new BleManager();
   let location = {latitude: null, longitude: null};
   try {
     location = await GetLocation.getCurrentPosition({
@@ -39,8 +57,6 @@ const scanAndConnect = async (manager) => {
     console.log(e);
   }
 
-  const deviceInfo = await DeviceInfo.getDevice();
-
   manager.startDeviceScan(
     [serviceId],
     {allowDuplicates: false},
@@ -50,11 +66,18 @@ const scanAndConnect = async (manager) => {
         return;
       }
 
-      getData(device, location, deviceInfo);
-
-      // setTimeout(() => {
+      sendData(device, location, bleIdentifier);
       manager.stopDeviceScan();
-      // }, 10000);
     },
   );
+};
+
+const sendData = async (device, location, bleIdentifier) => {
+  console.log('==============================');
+  console.log(`myIdentifier: ${bleIdentifier}`);
+  console.log(`encounteredIdentifier: ${device.name}`);
+  console.log(`rssi: ${device.rssi}`);
+  console.log(`timestamp: ${Date.now()}`);
+  console.log(`lat: ${location.latitude}`);
+  console.log(`long: ${location.longitude}`);
 };
