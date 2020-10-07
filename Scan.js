@@ -85,3 +85,11 @@ const sendData = async (device, location, bleIdentifier) => {
   console.log(`lat: ${location.latitude}`);
   console.log(`long: ${location.longitude}`);
 };
+
+const saveToLocalStorage = async () => {
+  AsyncStorage.setItem('devices');
+};
+
+const getLocalStorage = async () => {
+  return await AsyncStorage.getItem('devices');
+};
