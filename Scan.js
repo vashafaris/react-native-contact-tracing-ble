@@ -3,6 +3,7 @@ import BLEPeripheral from 'react-native-ble-peripheral';
 import {BluetoothStatus} from 'react-native-bluetooth-status';
 import GetLocation from 'react-native-get-location';
 import AsyncStorage from '@react-native-community/async-storage';
+import {localNotification} from './LocalNotification';
 
 module.exports = async (taskData) => {
   console.log('background service');
@@ -66,7 +67,10 @@ const scanService = async (bleIdentifier, serviceId) => {
         return;
       }
 
-      sendData(device, location, bleIdentifier);
+      if (device) {
+        sendData(device, location, bleIdentifier);
+        localNotification();
+      }
       manager.stopDeviceScan();
     },
   );
